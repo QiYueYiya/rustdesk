@@ -34,9 +34,12 @@ pub fn start_auto_update() {
 
 #[allow(dead_code)]
 pub fn manually_check_update() -> ResultType<()> {
+    bail!("Update function is disabled");
+    /*
     let sender = TX_MSG.lock().unwrap();
     sender.send(UpdateMsg::CheckUpdate)?;
     Ok(())
+    */
 }
 
 #[allow(dead_code)]
@@ -76,7 +79,7 @@ fn has_no_controlling_conns() -> bool {
 
 fn start_auto_update_check() -> Sender<UpdateMsg> {
     let (tx, rx) = channel();
-    std::thread::spawn(move || start_auto_update_check_(rx));
+    // std::thread::spawn(move || start_auto_update_check_(rx));
     return tx;
 }
 
@@ -117,6 +120,7 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
 }
 
 fn check_update(manually: bool) -> ResultType<()> {
+    /*
     #[cfg(target_os = "windows")]
     let is_msi = crate::platform::is_msi_installed()?;
     if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {
@@ -192,6 +196,7 @@ fn check_update(manually: bool) -> ResultType<()> {
             update_new_version(is_msi, &version, &file_path);
         }
     }
+    */
     Ok(())
 }
 

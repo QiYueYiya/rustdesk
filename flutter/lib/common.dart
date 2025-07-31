@@ -3785,6 +3785,8 @@ void earlyAssert() {
 }
 
 void checkUpdate() {
+  return;
+  /*
   if (!isWeb) {
     if (!bind.isCustomClient()) {
       platformFFI.registerEventHandler(
@@ -3799,6 +3801,7 @@ void checkUpdate() {
       });
     }
   }
+  */
 }
 
 // https://github.com/flutter/flutter/issues/153560#issuecomment-2497160535
