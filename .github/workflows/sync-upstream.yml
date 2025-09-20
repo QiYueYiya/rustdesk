@@ -1,0 +1,118 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-rustdesk:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get_tag.outputs.tag }}
+      submodule_hash: ${{ steps.get_submodule.outputs.submodule_hash }}
+    steps:
+    # 步骤1：拉取QiYueYiya/rustdesk仓库代码
+    - name: Checkout QiYueYiya/rustdesk
+      uses: actions/checkout@v4
+      with:
+        repository: QiYueYiya/rustdesk
+        token: ${{ secrets.ACCESS_TOKEN }}
+        fetch-depth: 0 # 拉取所有历史记录
+
+    # 步骤2：添加上游仓库为远程仓库并拉取代码
+    - name: Add upstream rustdesk/rustdesk
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git remote add upstream https://github.com/rustdesk/rustdesk.git || true
+        git fetch upstream
+
+    # 步骤3：合并上游仓库的最新标签源码到当前仓库的sync-upstream分支
+    - name: Merge upstream changes
+      id: get_tag
+      run: |
+        git checkout sync-upstream
+        git merge upstream/master
+        tag=$(git tag --sort=-creatordate | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+        git reset --hard ${tag}
+        git push origin sync-upstream
+
+    # 步骤4：获取子模块的哈希值
+    - name: Get submodule hash
+      id: get_submodule
+      run: |
+        hash=$(git submodule status | awk '{print $1}' | tr -d '-')
+        echo "submodule_hash=$hash" >> $GITHUB_OUTPUT
+
+  sync-hbb_common:
+    runs-on: ubuntu-latest
+    needs: sync-rustdesk
+    steps:
+    # 步骤1：拉取QiYueYiya/hbb_common仓库代码
+    - name: Checkout QiYueYiya/hbb_common
+      uses: actions/checkout@v4
+      with:
+        repository: QiYueYiya/hbb_common
+        token: ${{ secrets.ACCESS_TOKEN }}
+        fetch-depth: 0 # 拉取所有历史记录
+
+    # 步骤2：添加上游仓库为远程仓库并拉取代码
+    - name: Add upstream rustdesk/hbb_common
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git remote add upstream https://github.com/rustdesk/hbb_common.git || true
+        git fetch upstream
+
+    # 步骤3：合并上游仓库的main分支到当前仓库的sync-upstream分支
+    - name: Merge upstream changes
+      run: |
+        git checkout sync-upstream
+        git merge upstream/main
+        git reset --hard ${{ needs.sync-rustdesk.outputs.submodule_hash }}
+        git push origin sync-upstream
+
+    # 步骤4：将sync-upstream分支的更改合并到main分支
+    - name: Merge sync-upstream into main
+      run: |
+        git checkout main
+        git merge sync-upstream --allow-unrelated-histories -m "Sync with upstream: $(date -u +'%Y-%m-%d %H:%M:%S')"
+        git push origin main
+
+  sync:
+    runs-on: ubuntu-latest
+    needs: [sync-rustdesk, sync-hbb_common]
+    steps:
+    # 步骤1：拉取QiYueYiya/rustdesk仓库代码
+    - name: Checkout QiYueYiya/rustdesk
+      uses: actions/checkout@v4
+      with:
+        repository: QiYueYiya/rustdesk
+        token: ${{ secrets.ACCESS_TOKEN }}
+        fetch-depth: 0 # 拉取所有历史记录
+        submodules: recursive
+
+    # 步骤2：合并仓库分支
+    - name: Add upstream rustdesk/rustdesk
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git merge origin/sync-upstream -s recursive -X theirs || git reset libs/hbb_common
+        git commit -m "Sync with upstream: $(date -u +'%Y-%m-%d %H:%M:%S')" || true
+    
+    # 步骤3：更新远程子模块并推送源码
+    - name: Update submodules
+      run: |
+        git submodule update --init --recursive
+        git submodule update --remote --merge
+        git add libs/hbb_common || true
+        git commit -m "update submodule hbb_common to ${{ needs.sync-rustdesk.outputs.submodule_hash }}" || true
+        git push origin main
+
+    # 步骤4：创建并推送标签
+    - name: Create tag
+      run: |
+        git tag v${{ needs.sync-rustdesk.outputs.tag }}
+        git push --tags
