@@ -108,7 +108,8 @@ jobs:
         git submodule update --init --recursive
         git submodule update --remote --merge
         git add libs/hbb_common || true
-        git commit -m "update submodule hbb_common to ${{ needs.sync-rustdesk.outputs.submodule_hash }}" || true
+        short_hash=$(echo ${{ needs.sync-rustdesk.outputs.submodule_hash }} | cut -c1-8)
+        git commit -m "update submodule hbb_common to $short_hash" || true
         git push origin main
 
     # 步骤4：创建并推送标签
