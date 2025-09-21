@@ -8,19 +8,25 @@ on:
 jobs:
   check-update:
     runs-on: ubuntu-latest
+    outputs:
+      should_sync: ${{ steps.compare.outputs.should_sync }}
     steps:
-    - name: 下载并比对内容
+    - name: Download and compare content
+      id: compare
       run: |
         wget -O my.txt https://github.com/QiYueYiya/rustdesk/releases/download/fdroid-version/rustdesk-version.txt
         wget -O upstream.txt https://github.com/rustdesk/rustdesk/releases/download/fdroid-version/rustdesk-version.txt
         if cmp -s upstream.txt my.txt; then
           echo "版本一致，跳过后续工作流。"
-          exit 0
+          echo "should_sync=false" >> $GITHUB_OUTPUT
+        else
+          echo "should_sync=true" >> $GITHUB_OUTPUT
         fi
 
   sync-rustdesk:
     runs-on: ubuntu-latest
     needs: check-update
+    if: needs.check-update.outputs.should_sync == 'true'
     outputs:
       tag: ${{ steps.get_tag.outputs.tag }}
       submodule_hash: ${{ steps.get_submodule.outputs.submodule_hash }}
