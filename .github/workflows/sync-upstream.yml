@@ -11,6 +11,15 @@ jobs:
     outputs:
       should_sync: ${{ steps.compare.outputs.should_sync }}
     steps:
+    - name: Delete workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ secrets.ACCESS_TOKEN }}
+        repository: ${{ github.repository }}
+        retain_days: 3
+        keep_minimum_runs: 3
+        delete_workflow_pattern: sync-upstream.yml
+
     - name: Download and compare content
       id: compare
       run: |
